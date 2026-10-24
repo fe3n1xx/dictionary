@@ -24,14 +24,22 @@ class WelcomePage(tk.Frame):
         super().__init__(parent)
         self.controller = controller
 
-        title = tk.Label(self, text="PyDictionary Launcher", font=("Arial", 20, "bold"))
+        title = tk.Label(self, text="PyDictionary Launcher v1", font=("Arial", 20, "bold"))
         title.pack(pady=50)
 
         btn_open = tk.Button(self, text="Open Dictionary", font=("Arial", 14), command=self.attempt_open)
         btn_open.pack(pady=20)
 
+        btn_folder = tk.Button(self, text="Open Specific Folder", font=("Arial", 12), bg="#224d73", fg="white", command=self.select_folder)
+        btn_folder.pack(pady=10)
+    def select_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            self.controller.project_folder = Path(folder)
+            self.controller.show_frame("DictionaryDashboard")
+
     def attempt_open(self):
-        file_path = Path("dictionary.json") # for testing, turn into an input
+        file_path = self.controller.project_folder / "dictionary.json"
         if file_path.exists():
             self.controller.show_frame("DictionaryDashboard")
         else:
@@ -89,17 +97,36 @@ class DictionaryDashboard(tk.Frame):
         self.add_def_text = tk.Text(right_frame, height=5, width=20)
         self.add_def_text.pack(anchor="w", padx=10, pady=5)
 
-        tk.Button(right_frame, text="Add to Lexicon", bg="#224d73", fg="white", command=self.add_word).pack(anchor="w", padx=10, pady=10)
+        tk.Button(right_frame, text="Add to Lexicon", bg="#10DB10", fg="white", command=self.add_word).pack(anchor="w", padx=10, pady=10)
+
+        tk.Label(right_frame, text="Delete Word:").pack(anchor="w", padx=10, pady=(15,0))
+        self.del_word_entry = tk.Entry(right_frame, width=20)
+        self.del_word_entry.pack(anchor="w", padx=10, pady=(15,0))
+
+        tk.Button(right_frame, text="Delete Word", bg="#e00a0a", fg="white", command=self.delete_word).pack(anchor="w", padx=10, pady=5)
 
         self.refresh_dict_display()
-
+    def delete_word(self):
+        word = self.del_word_entry.get().strip()
+        if not word:
+            messagebox.showerror("ERROR", "Please enter a valid word!")
+            return
+        data = load_dictionary_data()
+        if word in data:
+            del data[word]
+            save_dictionary_data(data)
+            self.del_word_entry.delete(0, tk.END)
+            self.refresh_dict_display()
+            messagebox.showinfo("SUCCESS", f"Deleted '{word}'!")
+        else:
+            messagebox.showerror("ERROR", "Please enter a valid word!")
     def refresh_dict_display(self):
         self.dict_text.delete("1.0", tk.END)
         data = load_dictionary_data()
         if not data:
             self.dict_text.insert(tk.END, "Dictionary is Empty.")
             return
-        for word, definition in data.items():
+        for word, definition in sorted(data.items()):
             self.dict_text.insert(tk.END, f"• {word}\n{definition}\n\n")
 
     def search_word(self):
@@ -110,7 +137,7 @@ class DictionaryDashboard(tk.Frame):
         data = load_dictionary_data()
         self.dict_text.delete("1.0", tk.END)
         found = False
-        for word, definition in data.items():
+        for word, definition in sorted(data.items(), key=lambda x: x[0].lower()):
             if query in word.lower() or query in definition.lower():
                 self.dict_text.insert(tk.END, f"• {word} (Match)\n {definition}\n\n")
                 found = True
@@ -135,21 +162,33 @@ class DictionaryDashboard(tk.Frame):
         grammar_frame = tk.Frame(self.grammar_tab)
         grammar_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-        tk.Label(grammar_frame, text="Grammar Guidelines", font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 15))
+        tk.Label(grammar_frame, text="Edit Grammar Guidelines", font=("Arial", 14, "bold")).pack(anchor="w", pady=(0, 10))
 
-        rules = [
-            "Word Order: SVO",
-            "Noun Classes: Animate and Inanimate",
-            "Verb Tenses: Past (Default), Present (fl/fla-), Future (pl-/pla-), Active (lj-/lja-), Recurring (kl-/kla-)"
-        ]
-        for rule in rules:
-            tk.Label(grammar_frame, text=rule, font=("Arial", 11), anchor="w").pack(anchor="w", pady=5)
+        self.grammar_text = tk.Text(grammar_frame, height=15, width= 60, font=("Arial", 11))
+        self.grammar_text.pack(fill=tk.BOTH, expand=True, pady=5)
 
+        grammar_file = self.controller.project_folder / "grammar"
+        if grammar_file.exists():
+            with open(grammar_file, "r", encoding="utf-8") as f:
+                rules_text = f.read()
+        else:
+            rules_text = ""
+
+        self.grammar_text.insert("1.0", rules_text)
+
+        tk.Button(grammar_frame, text="Save Grammar Rules", bg="#10DB10", fg="white", command=self.save_grammar).pack(anchor="w", pady=10)
+    def save_grammar(self):
+        rules_text = self.grammar_text.get("1.0", tk.END).strip()
+        with open("grammar", "w", encoding="utf-8") as f:
+            f.write(rules_text)
+        messagebox.showinfo("SUCCESS", "Grammar Rules saved successfully!")
 class DictionaryApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("PyDictionary Version 0.01-beta")
+        self.root.title("PyDictionary Version 1.00")
         self.root.geometry("1600x900")
+
+        self.project_folder = Path(".")
 
         self.root.rowconfigure(0, weight=1)
         self.root.columnconfigure(0, weight=1)

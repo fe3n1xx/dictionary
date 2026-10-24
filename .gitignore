@@ -1,2 +1,6 @@
 todo
 dictionary.json
+grammar
+build/
+dist/
+app.spec
