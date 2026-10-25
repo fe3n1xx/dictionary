@@ -4,3 +4,5 @@ grammar
 build/
 dist/
 app.spec
+test/
+recent_folder.json
